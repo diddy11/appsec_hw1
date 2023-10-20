@@ -4,7 +4,7 @@ import sys
 data = b''
 data += b"A"*32  # Merchant ID
 data += b"B"*32  # Customer ID
-data += struct.pack("<I", 1)  # One record
+data += struct.pack("<I", -1)  # One record
 # Record of type message
 data += struct.pack("<I", 9999)  # Set a large, incorrect record size (potential buffer overflow)
 data += struct.pack("<I", 2)  # Record type
