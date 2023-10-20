@@ -1,0 +1,23 @@
+name: Gift Card Reader
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    
+    steps:
+    - uses: actions/checkout@v2
+      
+    - name: test crash1
+      run: ./giftcardreader 1 testcases/invalid/crash1.gft && ./giftcardreader 2 testcases/invalid/crash1.gft 
+      
+    - name: test crash2
+      run: ./giftcardreader 1 testcases/invalid/crash2.gft && ./giftcardreader 2 testcases/invalid/crash2.gft    
+      
+    - name: test hang
+      run: ./giftcardreader 1 testcases/invalid/hang.gft && ./giftcardreader 2 testcases/invalid/hang.gft
