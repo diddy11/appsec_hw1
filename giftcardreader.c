@@ -6,6 +6,7 @@
  * Date: 8 July 2020
  */
 
+//fix pending
 
 #include "giftcard.h"
 
