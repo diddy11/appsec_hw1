@@ -14,7 +14,7 @@ data += b"A"*31 + b'\x00'               # Note: 32 byte message
 data += b'\x08' * 256                   # Program made entirely of "end program" (256 bytes)
 
 f = open(sys.argv[1], 'wb')
-datalen = len(data) + 4 # Plus 4 bytes for the length itself
+datalen = len(data) + 40 # Plus 4 bytes for the length itself
 f.write(struct.pack("<I", datalen))
 f.write(data)
 f.close()
