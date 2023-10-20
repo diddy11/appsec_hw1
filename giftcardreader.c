@@ -6,28 +6,20 @@
  * Date: 8 July 2020
  */
 
-//fix pending
 
 #include "giftcard.h"
 
 #include <stdio.h>
-#include <string.h>
-#include <unistd.h>
+#include <strings.h>
 
-// .,~==== interpreter for THX-1138 assembly ====~,.
-//
-// This is an emulated version of a microcontroller with
-// 16 registers, one flag (the zero flag), and display
-// functionality. Programs can operate on the message
-// buffer and use opcode 0x07 to update the display, so
-// that animated greetings can be created.
+// interpreter for THX-1138 assembly
 void animate(char *msg, unsigned char *program) {
     unsigned char regs[16];
-    char *mptr = msg; // TODO: how big is this buffer?
+    char *mptr = msg;
     unsigned char *pc = program;
     int i = 0;
     int zf = 0;
-    while (pc < program+256) {
+    while (1) {
         unsigned char op, arg1, arg2;
         op = *pc;
         arg1 = *(pc+1);
@@ -35,25 +27,34 @@ void animate(char *msg, unsigned char *program) {
         switch (*pc) {
             case 0x00:
                 break;
+                //crash2
             case 0x01:
-                regs[arg1] = *mptr;
+                if (arg1 < 16)
+                    regs[arg1] = *mptr;
                 break;
             case 0x02:
                 *mptr = regs[arg1];
                 break;
             case 0x03:
-                mptr += (char)arg1;
+                mptr += arg1;
                 break;
             case 0x04:
-                regs[arg2] = arg1;
+                if (arg2 < 16)
+                    regs[arg2] = arg1;
                 break;
             case 0x05:
-                regs[arg1] ^= regs[arg2];
-                zf = !regs[arg1];
+                if (arg1 < 16 && arg2 < 16)
+                {
+                    regs[arg1] ^= regs[arg2];
+                    zf = !regs[arg1];
+                }
                 break;
             case 0x06:
-                regs[arg1] += regs[arg2];
-                zf = !regs[arg1];
+                if (arg1 < 16 && arg2 < 16)
+                {
+                    regs[arg1] += regs[arg2];
+                    zf = !regs[arg1];
+                }
                 break;
             case 0x07:
                 puts(msg);
@@ -61,37 +62,19 @@ void animate(char *msg, unsigned char *program) {
             case 0x08:
                 goto done;
             case 0x09:
-                pc += (char)arg1;
+            //hang
+                pc += (unsigned char)arg1;
                 break;
             case 0x10:
-                if (zf) pc += (char)arg1;
+		//fuzzer1
+                if (zf) pc += (unsigned char)arg1;
                 break;
         }
         pc+=3;
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-        // Slow down animation to make it more visible (disabled if fuzzing)
-        usleep(5000);
-#endif
+        if (pc > program+256) break;
     }
 done:
     return;
-}
-
-int get_gift_card_value(struct this_gift_card *thisone) {
-	struct gift_card_data *gcd_ptr;
-	struct gift_card_record_data *gcrd_ptr;
-	struct gift_card_amount_change *gcac_ptr;
-	int ret_count = 0;
-
-	gcd_ptr = thisone->gift_card_data;
-	for(int i=0;i<gcd_ptr->number_of_gift_card_records; i++) {
-  		gcrd_ptr = (struct gift_card_record_data *) gcd_ptr->gift_card_record_data[i];
-		if (gcrd_ptr->type_of_record == 1) {
-			gcac_ptr = gcrd_ptr->actual_record;
-			ret_count += gcac_ptr->amount_added;
-		}
-	}
-	return ret_count;
 }
 
 void print_gift_card_info(struct this_gift_card *thisone) {
@@ -113,7 +96,7 @@ void print_gift_card_info(struct this_gift_card *thisone) {
 			if (gcac_ptr->amount_added>0) {
 				printf("      signature: %32.32s\n",gcac_ptr->actual_signature);
 			}
-		}
+		}	
 		else if (gcrd_ptr->type_of_record == 2) {
 			printf("      record_type: message\n");
 			printf("      message: %s\n",(char *)gcrd_ptr->actual_record);
@@ -121,7 +104,6 @@ void print_gift_card_info(struct this_gift_card *thisone) {
 		else if (gcrd_ptr->type_of_record == 3) {
             gcp_ptr = gcrd_ptr->actual_record;
 			printf("      record_type: animated message\n");
-            // BDG: Hmm... is message guaranteed to be null-terminated?
             printf("      message: %s\n", gcp_ptr->message);
             printf("  [running embedded program]  \n");
             animate(gcp_ptr->message, gcp_ptr->program);
@@ -180,7 +162,26 @@ void gift_card_json(struct this_gift_card *thisone) {
     printf("}\n");
 }
 
+int get_gift_card_value(struct this_gift_card *thisone) {
+	struct gift_card_data *gcd_ptr;
+	struct gift_card_record_data *gcrd_ptr;
+	struct gift_card_amount_change *gcac_ptr;
+	int ret_count = 0;
 
+	gcd_ptr = thisone->gift_card_data;
+	for(int i=0;i<gcd_ptr->number_of_gift_card_records; i++) {
+  		gcrd_ptr = (struct gift_card_record_data *) gcd_ptr->gift_card_record_data[i];
+		if (gcrd_ptr->type_of_record == 1) {
+			gcac_ptr = gcrd_ptr->actual_record;
+			ret_count += gcac_ptr->amount_added;
+		}	
+	}
+	return ret_count;
+}
+
+
+
+/* JAC: input_fd is misleading... It's a FILE type, not a fd */
 struct this_gift_card *gift_card_reader(FILE *input_fd) {
 
 	struct this_gift_card *ret_val = malloc(sizeof(struct this_gift_card));
@@ -194,6 +195,13 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
 		struct gift_card_data *gcd_ptr;
 		/* JAC: Why aren't return types checked? */
 		fread(&ret_val->num_bytes, 4,1, input_fd);
+    
+    //crash1
+    if (ret_val->num_bytes < 0)
+		{
+		  printf("Error. \n");
+		  exit(0);		
+		}
 
 		// Make something the size of the rest and read it in
 		ptr = malloc(ret_val->num_bytes);
@@ -203,10 +211,10 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
 
 		gcd_ptr = ret_val->gift_card_data = malloc(sizeof(struct gift_card_data));
 		gcd_ptr->merchant_id = ptr;
-		ptr += 32;
+		ptr += 32;	
 //		printf("VD: %d\n",(int)ptr - (int) gcd_ptr->merchant_id);
 		gcd_ptr->customer_id = ptr;
-		ptr += 32;
+		ptr += 32;	
 		/* JAC: Something seems off here... */
 		gcd_ptr->number_of_gift_card_records = *((char *)ptr);
 		ptr += 4;
@@ -214,7 +222,7 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
 		gcd_ptr->gift_card_record_data = (void *)malloc(gcd_ptr->number_of_gift_card_records*sizeof(void*));
 
 		// Now ptr points at the gift card recrod data
-		for (int i=0; i < gcd_ptr->number_of_gift_card_records; i++){
+		for (int i=0; i<=gcd_ptr->number_of_gift_card_records; i++){
 			//printf("i: %d\n",i);
 			struct gift_card_record_data *gcrd_ptr;
 			gcrd_ptr = gcd_ptr->gift_card_record_data[i] = malloc(sizeof(struct gift_card_record_data));
@@ -224,17 +232,17 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
 			gcp_ptr = malloc(sizeof(struct gift_card_program));
 
 			gcrd_ptr->record_size_in_bytes = *((char *)ptr);
-            //printf("rec at %x, %d bytes\n", ptr - optr, gcrd_ptr->record_size_in_bytes);
-			ptr += 4;
+            //printf("rec at %x, %d bytes\n", ptr - optr, gcrd_ptr->record_size_in_bytes); 
+			ptr += 4;	
 			//printf("record_data: %d\n",gcrd_ptr->record_size_in_bytes);
 			gcrd_ptr->type_of_record = *((char *)ptr);
-			ptr += 4;
+			ptr += 4;	
             //printf("type of rec: %d\n", gcrd_ptr->type_of_record);
 
 			// amount change
 			if (gcrd_ptr->type_of_record == 1) {
 				gcac_ptr->amount_added = *((int*) ptr);
-				ptr += 4;
+				ptr += 4;	
 
 				// don't need a sig if negative
 				/* JAC: something seems off here */
@@ -250,7 +258,7 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
                 // BDG: does not seem right
 				ptr=ptr+strlen((char *)gcrd_ptr->actual_record)+1;
 			}
-            // BDG: gift cards can run code?? Might want to check this one carefully...
+            // BDG: never seen one of these in the wild
             // text animatino (BETA)
             if (gcrd_ptr->type_of_record == 3) {
                 gcp_ptr->message = malloc(32);
@@ -261,29 +269,25 @@ struct this_gift_card *gift_card_reader(FILE *input_fd) {
                 ptr+=256;
                 gcrd_ptr->actual_record = gcp_ptr;
             }
-
-            if (gcrd_ptr->type_of_record > 3) {
-                printf("unknown record type: %d\n", gcrd_ptr->type_of_record);
-                exit(1);
-            }
 		}
 	}
 	return ret_val;
 }
 
+// BDG: why not a local variable here?
 struct this_gift_card *thisone;
 
 int main(int argc, char **argv) {
-    if (argc != 3) {
-        fprintf(stderr, "usage: %s <1|2> file.gft\n", argv[0]);
-        fprintf(stderr, "  - Use 1 for text output, 2 for JSON output\n");
-        return 1;
-    }
+    // BDG: no argument checking?
 	FILE *input_fd = fopen(argv[2],"r");
-    if (!input_fd) {
-        fprintf(stderr, "error opening file\n");
-        return 1;
-    }
+	
+	//agnostic
+	if (input_fd == NULL)
+	{
+		printf("No file found.\n");
+		return 0;
+	}	
+		
 	thisone = gift_card_reader(input_fd);
 	if (argv[1][0] == '1') print_gift_card_info(thisone);
     else if (argv[1][0] == '2') gift_card_json(thisone);
