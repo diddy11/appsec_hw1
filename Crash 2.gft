@@ -1,0 +1,28 @@
+// crash2gen.c
+#include <stdio.h>
+#include <stdint.h>
+
+int main() {
+    FILE *f = fopen("crash2.gft", "wb");
+
+    uint32_t num_bytes = 100;
+    char merchant_id[32] = "CrashMerchant                    ";
+    char customer_id[32] = "CrashCustomer                    ";
+    uint32_t num_records = 1;
+    uint32_t record_size = 8;
+    uint32_t type_of_record = 1; // triggers register write
+    uint8_t arg1 = 0xAA;
+    uint8_t arg2 = 0xFF; // out-of-bounds index
+
+    fwrite(&num_bytes, 4, 1, f);
+    fwrite(merchant_id, 32, 1, f);
+    fwrite(customer_id, 32, 1, f);
+    fwrite(&num_records, 4, 1, f);
+    fwrite(&record_size, 4, 1, f);
+    fwrite(&type_of_record, 4, 1, f);
+    fwrite(&arg1, 1, 1, f);
+    fwrite(&arg2, 1, 1, f);
+
+    fclose(f);
+    return 0;
+}

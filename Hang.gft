@@ -1,0 +1,34 @@
+// hanggen.c
+#include <stdio.h>
+#include <stdint.h>
+
+int main() {
+    FILE *f = fopen("hang.gft", "wb");
+
+    uint32_t num_bytes = 100;
+    char merchant_id[32] = "HangMerchant                     ";
+    char customer_id[32] = "HangCustomer                     ";
+    uint32_t num_records = 2;
+
+    // Record 1: move pointer forward by 3
+    uint32_t record_size1 = 4;
+    uint32_t type1 = 9;
+
+    // Record 2: move pointer backward by 3
+    uint32_t record_size2 = 4;
+    uint32_t type2 = 9;
+
+    fwrite(&num_bytes, 4, 1, f);
+    fwrite(merchant_id, 32, 1, f);
+    fwrite(customer_id, 32, 1, f);
+    fwrite(&num_records, 4, 1, f);
+
+    fwrite(&record_size1, 4, 1, f);
+    fwrite(&type1, 4, 1, f);
+
+    fwrite(&record_size2, 4, 1, f);
+    fwrite(&type2, 4, 1, f);
+
+    fclose(f);
+    return 0;
+}

